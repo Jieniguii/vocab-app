@@ -58,6 +58,10 @@
 
       // 渲染首页
       renderHomePage();
+    }).catch(function(err) {
+      console.error('App init error:', err);
+      appEl.innerHTML = '<div class="page page-home" style="justify-content:center;align-items:center;">' +
+        '<p style="color:#E76F51;font-size:16px;text-align:center;">初始化失败: ' + (err && err.message ? err.message : err) + '<br>请刷新页面重试</p></div>';
     });
   }
 
@@ -586,42 +590,58 @@
   // ==================== 公共操作 ====================
 
   function startNewStudy() {
-    // 从词库中随机选30个未学过的词（学新词，不是复习）
-    DB.getAllRecords().then(function(records) {
-      var learnedIds = {};
-      records.forEach(function(r) {
-        learnedIds[r.wordId] = true;
-      });
-
-      var available = cet6Words.filter(function(w) {
-        return !learnedIds[w.word];
-      });
-
-      if (available.length === 0) {
-        alert('词库中的单词已全部学过！\n请使用复习功能巩固记忆。');
+    try {
+      if (!DB) {
+        alert('数据库未初始化，请刷新页面重试');
         return;
       }
-
-      // 随机选30个
-      var shuffled = available.sort(function() { return Math.random() - 0.5; });
-      var selected = shuffled.slice(0, Math.min(30, shuffled.length));
-
-      if (selected.length < 30) {
-        // 不足30个时，用已学但未掌握的词补齐
-        var unmastered = cet6Words.filter(function(w) {
-          return learnedIds[w.word] && !records.find(function(r) {
-            return r.wordId === w.word && r.mastery >= 1;
-          });
-        });
-        var shuffled2 = unmastered.sort(function() { return Math.random() - 0.5; });
-        var need = 30 - selected.length;
-        for (var i = 0; i < need && i < shuffled2.length; i++) {
-          selected.push(shuffled2[i]);
-        }
+      if (!cet6Words || cet6Words.length === 0) {
+        alert('词库数据未加载，请刷新页面重试');
+        return;
       }
+      // 从词库中随机选30个未学过的词（学新词，不是复习）
+      DB.getAllRecords().then(function(records) {
+        var learnedIds = {};
+        records.forEach(function(r) {
+          learnedIds[r.wordId] = true;
+        });
 
-      Study.startStudy(selected);
-    });
+        var available = cet6Words.filter(function(w) {
+          return !learnedIds[w.word];
+        });
+
+        if (available.length === 0) {
+          alert('词库中的单词已全部学过！\n请使用复习功能巩固记忆。');
+          return;
+        }
+
+        // 随机选30个
+        var shuffled = available.sort(function() { return Math.random() - 0.5; });
+        var selected = shuffled.slice(0, Math.min(30, shuffled.length));
+
+        if (selected.length < 30) {
+          // 不足30个时，用已学但未掌握的词补齐
+          var unmastered = cet6Words.filter(function(w) {
+            return learnedIds[w.word] && !records.find(function(r) {
+              return r.wordId === w.word && r.mastery >= 1;
+            });
+          });
+          var shuffled2 = unmastered.sort(function() { return Math.random() - 0.5; });
+          var need = 30 - selected.length;
+          for (var i = 0; i < need && i < shuffled2.length; i++) {
+            selected.push(shuffled2[i]);
+          }
+        }
+
+        Study.startStudy(selected);
+      }).catch(function(err) {
+        console.error('startNewStudy error:', err);
+        alert('加载学习数据失败: ' + (err && err.message ? err.message : err));
+      });
+    } catch(e) {
+      console.error('startNewStudy exception:', e);
+      alert('操作失败: ' + e.message);
+    }
   }
 
   function startReview() {
